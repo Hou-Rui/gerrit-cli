@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use feature 'signatures';
+no warnings 'experimental::signatures';
+
+use Cwd 'getcwd';
+use Term::ANSIColor;
+
+sub die_usage($exit_code = 0) {
+  printf "usage: gerrit <subcmd> [<arg>...]\n";
+  exit $exit_code;
+}
+
+sub die_error($msg, @args) {
+  my $err = colored "error:", "bold red";
+  die sprintf "$err $msg\n", @args;
+}
+
+sub git(@args) {
+  my $msg = sprintf "git %s\n", join(' ', @args);
+  print colored $msg, "bold";
+  my $ret = system 'git', @args;
+  die_error "git returned $ret" if $ret != 0;
+}
+
+sub trim($str) {
+  $str =~ s/^\s+|\s+$//g;
+  return $str;
+}
+
+sub git_check_repo() {
+  my $cwd = getcwd;
+  die_error "not a git repository" if not -d "$cwd/.git";
+}
+
+sub git_head()     { trim `git rev-parse HEAD` }
+sub git_branch()   { trim `git rev-parse --abbrev-ref HEAD` }
+sub git_origin()   { trim `git remote show` }
+
+sub git_upstream() {
+  my $remote = trim `git rev-parse --abbrev-ref \@{u}`;
+  my ($origin, $branch) = ($1, $2) if $remote =~ m{^(.+?)/(.*)};
+  die_error "origin invalid: $remote" if $origin ne git_origin;
+  return $branch;
+}
+
+sub git_server() {
+  my $origin = git_origin;
+  my $url = trim `git remote get-url $origin`;
+  return $1 if $url =~ m{^(.+://.+?)/.*$};
+  die_error "unable to parse git URL";
+}
+
+sub subcmd_help(@) {
+  die_usage 0;
+}
+
+sub subcmd_query(@args) {
+  push @args, git_head if not @args;
+  system 'ssh', git_server, 'gerrit', 'query', @args;
+}
+
+sub subcmd_branch(@args) {
+  my $origin = git_origin;
+  my $upstream = git_upstream;
+  while (my $branch = shift @args) {
+    git 'checkout', $upstream;
+    git 'checkout', '-b', $branch;
+    git 'branch', '-u', "$origin/$upstream";
+  }
+}
+
+sub subcmd_origin(@) {
+  git 'checkout', git_upstream;
+}
+
+sub subcmd_pick(@args) {
+  my $current_branch = git_branch;
+  my $head = git_head;
+  my $origin = git_origin;
+  while (my $branch = shift @args) {
+    my $tmp_branch = "pick/$head";
+    git 'checkout', $branch;
+    git 'checkout', '-b', $tmp_branch;
+    git 'cherry-pick', $head;
+    git 'push', $origin, "HEAD:refs/for/$branch";
+    git 'checkout', $current_branch;
+    git 'branch', '-D', $tmp_branch;
+  }
+}
+
+sub subcmd_push(@) {
+  my $origin = git_origin;
+  my $upstream = git_upstream;
+  git 'commit', '--amend', '--no-edit';
+  git 'push', $origin, "HEAD:refs/for/$upstream";
+}
+
+git_check_repo;
+my $subcmd = shift;
+die_usage 1 if not defined $subcmd;
+my $handler = "subcmd_$subcmd";
+die_usage 1 if not exists &$handler;
+(\&$handler)->(@ARGV);
+
