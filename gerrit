@@ -7,6 +7,7 @@ no warnings 'experimental::signatures';
 
 use Cwd 'getcwd';
 use Term::ANSIColor;
+use JSON::PP;
 
 sub die_usage($exit_code = 0) {
   printf "usage: gerrit <subcmd> [<arg>...]\n";
@@ -30,6 +31,10 @@ sub trim($str) {
   return $str;
 }
 
+sub first_line($str) {
+  (split '\n', $str)[0]
+}
+
 sub git_check_repo() {
   my $cwd = getcwd;
   die_error "not a git repository" if not -d "$cwd/.git";
@@ -39,6 +44,11 @@ sub git_head()     { trim `git rev-parse HEAD` }
 sub git_branch()   { trim `git rev-parse --abbrev-ref HEAD` }
 sub git_origin()   { trim `git remote show` }
 
+sub git_repo_url() {
+  my $origin = git_origin;
+  trim `git remote get-url $origin`
+}
+
 sub git_upstream() {
   my $remote = trim `git rev-parse --abbrev-ref \@{u}`;
   my ($origin, $branch) = ($1, $2) if $remote =~ m{^(.+?)/(.*)};
@@ -47,9 +57,7 @@ sub git_upstream() {
 }
 
 sub git_server() {
-  my $origin = git_origin;
-  my $url = trim `git remote get-url $origin`;
-  return $1 if $url =~ m{^(.+://.+?)/.*$};
+  return $1 if git_repo_url =~ m{^(.+://.+?)/.*$};
   die_error "unable to parse git URL";
 }
 
@@ -80,7 +88,7 @@ sub subcmd_pick(@args) {
   my $current_branch = git_branch;
   my $head = git_head;
   my $origin = git_origin;
-  while (my $branch = shift @args) {
+  for my $branch (@args) {
     my $tmp_branch = "pick/$head";
     git 'checkout', $branch;
     git 'checkout', '-b', $tmp_branch;
@@ -96,6 +104,18 @@ sub subcmd_push(@) {
   my $upstream = git_upstream;
   git 'commit', '--amend', '--no-edit';
   git 'push', $origin, "HEAD:refs/for/$upstream";
+}
+
+sub subcmd_download(@args) {
+  my $server = git_server;
+  for my $arg (@args) {
+    my $resp_json = `ssh $server gerrit query $arg --current-patch-set --format JSON`;
+    my $resp = decode_json first_line $resp_json;
+    die_error "no commit found for $arg" if not defined $resp;
+    my $ref = $resp->{currentPatchSet}->{ref};
+    git 'fetch', git_repo_url, $ref;
+    git 'cherry-pick', 'FETCH_HEAD';
+  }
 }
 
 git_check_repo;
