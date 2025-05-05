@@ -111,8 +111,8 @@ sub subcmd_download(@args) {
   for my $arg (@args) {
     my $resp_json = `ssh $server gerrit query $arg --current-patch-set --format JSON`;
     my $resp = decode_json first_line $resp_json;
-    die_error "no commit found for $arg" if not defined $resp;
     my $ref = $resp->{currentPatchSet}->{ref};
+    die_error "no commit found for $arg" if not defined $ref;
     git 'fetch', git_repo_url, $ref;
     git 'cherry-pick', 'FETCH_HEAD';
   }
