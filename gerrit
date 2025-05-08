@@ -36,8 +36,8 @@ sub first_line($str) {
 }
 
 sub git_check_repo() {
-  my $cwd = getcwd;
-  die_error "not a git repository" if not -d "$cwd/.git";
+  `git rev-parse --show-toplevel`;
+  die_error "not a git repository" if $? != 0;
 }
 
 sub git_head()     { trim `git rev-parse HEAD` }
