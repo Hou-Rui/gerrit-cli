@@ -36,8 +36,8 @@ sub first_line($str) {
 }
 
 sub git_check_repo() {
-  my $cwd = getcwd;
-  die_error "not a git repository" if not -d "$cwd/.git";
+  `git rev-parse --show-toplevel`;
+  die_error "not a git repository" if $? != 0;
 }
 
 sub git_head()     { trim `git rev-parse HEAD` }
@@ -93,7 +93,7 @@ sub subcmd_pick(@args) {
     git 'checkout', $branch;
     git 'checkout', '-b', $tmp_branch;
     git 'cherry-pick', $head;
-    git 'push', $origin, "HEAD:refs/for/$branch";
+    git 'push', $origin, "HEAD:refs/for/$branch", "--no-thin";
     git 'checkout', $current_branch;
     git 'branch', '-D', $tmp_branch;
   }
@@ -111,8 +111,8 @@ sub subcmd_download(@args) {
   for my $arg (@args) {
     my $resp_json = `ssh $server gerrit query $arg --current-patch-set --format JSON`;
     my $resp = decode_json first_line $resp_json;
-    die_error "no commit found for $arg" if not defined $resp;
     my $ref = $resp->{currentPatchSet}->{ref};
+    die_error "no commit found for $arg" if not defined $ref;
     git 'fetch', git_repo_url, $ref;
     git 'cherry-pick', 'FETCH_HEAD';
   }
