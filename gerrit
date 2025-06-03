@@ -74,7 +74,6 @@ sub subcmd_branch(@args) {
   my $origin = git_origin;
   my $upstream = git_upstream;
   while (my $branch = shift @args) {
-    git 'checkout', $upstream;
     git 'checkout', '-b', $branch;
     git 'branch', '-u', "$origin/$upstream";
   }
