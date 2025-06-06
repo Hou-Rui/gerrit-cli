@@ -19,13 +19,6 @@ sub die_error($msg, @args) {
   die sprintf "$err $msg\n", @args;
 }
 
-sub git(@args) {
-  my $msg = sprintf "git %s\n", join(' ', @args);
-  print colored $msg, "bold";
-  my $ret = system 'git', @args;
-  die_error "git returned $ret" if $ret != 0;
-}
-
 sub trim($str) {
   $str =~ s/^\s+|\s+$//g;
   return $str;
@@ -35,22 +28,36 @@ sub first_line($str) {
   (split '\n', $str)[0]
 }
 
+sub capture($cmd) {
+  my $output = `$cmd`;
+  die_error "cammand '$cmd' returned $?" if $? != 0;
+  trim $output;
+}
+
+sub git(@args) {
+  my $msg = sprintf "git %s\n", join(' ', @args);
+  print colored $msg, "bold";
+  my $ret = system 'git', @args;
+  die_error "git returned $ret" if $ret != 0;
+  return $ret;
+}
+
 sub git_check_repo() {
   `git rev-parse --show-toplevel`;
   die_error "not a git repository" if $? != 0;
 }
 
-sub git_head()     { trim `git rev-parse HEAD` }
-sub git_branch()   { trim `git rev-parse --abbrev-ref HEAD` }
-sub git_origin()   { trim `git remote show` }
+sub git_head()     { capture "git rev-parse HEAD" }
+sub git_branch()   { capture "git rev-parse --abbrev-ref HEAD" }
+sub git_origin()   { capture "git remote show" }
 
 sub git_repo_url() {
   my $origin = git_origin;
-  trim `git remote get-url $origin`
+  capture "git remote get-url $origin"
 }
 
 sub git_upstream() {
-  my $remote = trim `git rev-parse --abbrev-ref \@{u}`;
+  my $remote = capture "git rev-parse --abbrev-ref \@{u}";
   my ($origin, $branch) = ($1, $2) if $remote =~ m{^(.+?)/(.*)};
   die_error "origin invalid: $remote" if $origin ne git_origin;
   return $branch;
@@ -108,7 +115,7 @@ sub subcmd_push(@) {
 sub subcmd_download(@args) {
   my $server = git_server;
   for my $arg (@args) {
-    my $resp_json = `ssh $server gerrit query $arg --current-patch-set --format JSON`;
+    my $resp_json = capture "ssh $server gerrit query $arg --current-patch-set --format JSON";
     my $resp = decode_json first_line $resp_json;
     my $ref = $resp->{currentPatchSet}->{ref};
     die_error "no commit found for $arg" if not defined $ref;
