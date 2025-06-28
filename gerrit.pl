@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use feature 'signatures';
+use feature 'signatures', 'say';
 no warnings 'experimental::signatures';
 
 use Term::ANSIColor;
@@ -14,15 +14,9 @@ sub die_usage($exit_code = 0) {
   printf "usage: gerrit <subcmd> [<arg>...]\n";
   printf "Available subcmd:\n";
   for (grep { /^subcmd_/ } keys %main::) {
-    s/^subcmd_//g;
-    printf "$_\n";
+    say $_ if s/^subcmd_//g;
   }
   exit $exit_code;
-}
-
-sub die_error($msg, @args) {
-  my $err = colored "error:", "bold red";
-  die sprintf "$err $msg\n", @args;
 }
 
 sub first_line($str) {
@@ -33,7 +27,7 @@ sub git(@args) {
   my $msg = sprintf "git %s\n", join(' ', @args);
   print colored $msg, "bold";
   my $ret = system 'git', @args;
-  die_error "git returned $ret" if $ret != 0;
+  die "git returned $ret" if $ret != 0;
   return $ret;
 }
 
@@ -50,13 +44,13 @@ sub git_repo_url() {
 sub git_upstream() {
   my $remote = capture "git rev-parse --abbrev-ref \@{u}";
   my ($origin, $branch) = ($1, $2) if $remote =~ m{^(.+?)/(.*)};
-  die_error "origin invalid: $remote" if $origin ne git_origin;
+  die "origin invalid: $remote" if $origin ne git_origin;
   return $branch;
 }
 
 sub git_server() {
   return $1 if git_repo_url =~ m{^(.+://.+?)/.*$};
-  die_error "unable to parse git URL";
+  die "unable to parse git URL";
 }
 
 sub subcmd_help(@) {
@@ -109,7 +103,7 @@ sub subcmd_download(@args) {
     my $resp_json = capture "ssh $server gerrit query $arg --current-patch-set --format JSON";
     my $resp = decode_json first_line $resp_json;
     my $ref = $resp->{currentPatchSet}->{ref};
-    die_error "no commit found for $arg" if not defined $ref;
+    die "no commit found for $arg" if not defined $ref;
     git 'fetch', git_repo_url, $ref;
     git 'cherry-pick', 'FETCH_HEAD';
   }
@@ -123,4 +117,8 @@ eval {
   die_usage 1 if not exists &$handler;
   (\&$handler)->(@ARGV);
 };
-die_error $@ if $@;
+
+if ($@) {
+  my $err = colored "error:", "bold red";
+  die "$err $@";
+}
