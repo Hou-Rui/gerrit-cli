@@ -11,8 +11,8 @@ use String::Util 'trim';
 use IPC::System::Simple 'system', 'capture';
 
 sub die_usage($exit_code = 0) {
-  printf "usage: gerrit <subcmd> [<arg>...]\n";
-  printf "Available subcmd:\n";
+  say "Usage: gerrit <subcmd> [<arg>...]";
+  say "Available subcmd:";
   for (grep { /^subcmd_/ } keys %main::) {
     say $_ if s/^subcmd_//g;
   }
@@ -24,11 +24,8 @@ sub first_line($str) {
 }
 
 sub git(@args) {
-  my $msg = sprintf "git %s\n", join(' ', @args);
-  print colored $msg, "bold";
-  my $ret = system 'git', @args;
-  die "git returned $ret" if $ret != 0;
-  return $ret;
+  say colored join(' ', 'git', @args), "bold";
+  system 'git', @args;
 }
 
 sub git_check_repo() { capture "git rev-parse --show-toplevel" }
