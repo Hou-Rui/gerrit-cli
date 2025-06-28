@@ -5,12 +5,18 @@ use warnings;
 use feature 'signatures';
 no warnings 'experimental::signatures';
 
-use Cwd 'getcwd';
 use Term::ANSIColor;
 use JSON::PP;
+use String::Util 'trim';
+use IPC::System::Simple 'system', 'capture';
 
 sub die_usage($exit_code = 0) {
   printf "usage: gerrit <subcmd> [<arg>...]\n";
+  printf "Available subcmd:\n";
+  for (grep { /^subcmd_/ } keys %main::) {
+    s/^subcmd_//g;
+    printf "$_\n";
+  }
   exit $exit_code;
 }
 
@@ -19,19 +25,8 @@ sub die_error($msg, @args) {
   die sprintf "$err $msg\n", @args;
 }
 
-sub trim($str) {
-  $str =~ s/^\s+|\s+$//g;
-  return $str;
-}
-
 sub first_line($str) {
   (split '\n', $str)[0]
-}
-
-sub capture($cmd) {
-  my $output = `$cmd`;
-  die_error "cammand '$cmd' returned $?" if $? != 0;
-  trim $output;
 }
 
 sub git(@args) {
@@ -42,14 +37,10 @@ sub git(@args) {
   return $ret;
 }
 
-sub git_check_repo() {
-  `git rev-parse --show-toplevel`;
-  die_error "not a git repository" if $? != 0;
-}
-
-sub git_head()     { capture "git rev-parse HEAD" }
-sub git_branch()   { capture "git rev-parse --abbrev-ref HEAD" }
-sub git_origin()   { capture "git remote show" }
+sub git_check_repo() { capture "git rev-parse --show-toplevel" }
+sub git_head()       { capture "git rev-parse HEAD" }
+sub git_branch()     { capture "git rev-parse --abbrev-ref HEAD" }
+sub git_origin()     { capture "git remote show" }
 
 sub git_repo_url() {
   my $origin = git_origin;
@@ -124,10 +115,12 @@ sub subcmd_download(@args) {
   }
 }
 
-git_check_repo;
-my $subcmd = shift;
-die_usage 1 if not defined $subcmd;
-my $handler = "subcmd_$subcmd";
-die_usage 1 if not exists &$handler;
-(\&$handler)->(@ARGV);
-
+eval {
+  git_check_repo;
+  my $subcmd = shift;
+  die_usage 1 if not defined $subcmd;
+  my $handler = "subcmd_$subcmd";
+  die_usage 1 if not exists &$handler;
+  (\&$handler)->(@ARGV);
+};
+die_error $@ if $@;
