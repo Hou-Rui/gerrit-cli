@@ -28,18 +28,18 @@ sub git(@args) {
   system 'git', @args;
 }
 
-sub git_check_repo() { capture "git rev-parse --show-toplevel" }
-sub git_head()       { capture "git rev-parse HEAD" }
-sub git_branch()     { capture "git rev-parse --abbrev-ref HEAD" }
-sub git_origin()     { capture "git remote show" }
+sub git_check_repo() { trim capture "git rev-parse --show-toplevel" }
+sub git_head()       { trim capture "git rev-parse HEAD" }
+sub git_branch()     { trim capture "git rev-parse --abbrev-ref HEAD" }
+sub git_origin()     { trim capture "git remote show" }
 
 sub git_repo_url() {
   my $origin = git_origin;
-  capture "git remote get-url $origin"
+  trim capture "git remote get-url $origin"
 }
 
 sub git_upstream() {
-  my $remote = capture "git rev-parse --abbrev-ref \@{u}";
+  my $remote = trim capture "git rev-parse --abbrev-ref \@{u}";
   my ($origin, $branch) = ($1, $2) if $remote =~ m{^(.+?)/(.*)};
   die "origin invalid: $remote" if $origin ne git_origin;
   return $branch;
@@ -97,7 +97,7 @@ sub subcmd_push(@) {
 sub subcmd_download(@args) {
   my $server = git_server;
   for my $arg (@args) {
-    my $resp_json = capture "ssh $server gerrit query $arg --current-patch-set --format JSON";
+    my $resp_json = trim capture "ssh $server gerrit query $arg --current-patch-set --format JSON";
     my $resp = decode_json first_line $resp_json;
     my $ref = $resp->{currentPatchSet}->{ref};
     die "no commit found for $arg" if not defined $ref;
