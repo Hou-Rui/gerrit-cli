@@ -109,7 +109,7 @@ sub subcmd_download(@args) {
 eval {
   git_check_repo;
   my $subcmd = shift;
-  die_usage 1 if not defined $subcmd;
+  die_usage 0 if not defined $subcmd;
   my $handler = "subcmd_$subcmd";
   die_usage 1 if not exists &$handler;
   (\&$handler)->(@ARGV);
