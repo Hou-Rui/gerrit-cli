@@ -2,13 +2,12 @@
 
 PERL        := perl
 LOCAL_LIB   := $(CURDIR)/local
-PERL5LIB    := $(LOCAL_LIB)/lib/perl5
 CPANM       := $(LOCAL_LIB)/bin/cpanm
-PP          := $(LOCAL_LIB)/bin/pp
+FATPACK     := $(LOCAL_LIB)/bin/fatpack
 APP_PL      := gerrit.pl
 APP_EXE     := build/gerrit
 
-export PERL5LIB
+export PERL5LIB=$(LOCAL_LIB)/lib/perl5
 export PERL_LOCAL_LIB_ROOT=$(LOCAL_LIB)
 export PERL_MB_OPT=--install_base $(LOCAL_LIB)
 export PERL_MM_OPT=INSTALL_BASE=$(LOCAL_LIB)
@@ -21,11 +20,11 @@ $(CPANM):
 
 deps: $(CPANM)
 	$(CPANM) --local-lib=$(LOCAL_LIB) --installdeps .
-	$(CPANM) --local-lib=$(LOCAL_LIB) PAR::Packer
 
 $(APP_EXE): deps $(APP_PL)
 	mkdir -p build
-	$(PP) -x -o $(APP_EXE) $(APP_PL)
+	$(FATPACK) pack $(APP_PL) > $(APP_EXE)
+	chmod +x $(APP_EXE)
 
 clean:
 	rm -rf build local
