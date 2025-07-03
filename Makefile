@@ -27,5 +27,5 @@ $(APP_EXE): deps $(APP_PL)
 	chmod +x $(APP_EXE)
 
 clean:
-	rm -rf build local
+	rm -rf build local fatlib
 
