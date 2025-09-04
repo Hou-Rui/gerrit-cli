@@ -24,7 +24,7 @@ sub first_line($str) {
 }
 
 sub git(@args) {
-  say colored join(' ', 'git', @args), "bold";
+  say colored join(' ', 'git', @args), "bold green";
   system 'git', @args;
 }
 
