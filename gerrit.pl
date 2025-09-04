@@ -79,7 +79,7 @@ sub subcmd_pick(@args) {
   for my $branch (@args) {
     my $tmp_branch = "pick/$head";
     git 'checkout', $branch;
-    git 'checkout', '-b', $tmp_branch;
+    subcmd_branch $tmp_branch;
     git 'cherry-pick', $head;
     git 'push', $origin, "HEAD:refs/for/$branch", "--no-thin";
     git 'checkout', $current_branch;
@@ -103,6 +103,19 @@ sub subcmd_download(@args) {
     die "no commit found for $arg" if not defined $ref;
     git 'fetch', git_repo_url, $ref;
     git 'cherry-pick', 'FETCH_HEAD';
+  }
+}
+
+sub subcmd_retrigger(@args) {
+  my $current_branch = git_branch;
+  for my $arg (@args) {
+    my $tmp_branch = "retrigger/$arg";
+    git 'checkout', git_upstream;
+    subcmd_branch $tmp_branch;
+    subcmd_download $arg;
+    subcmd_push;
+    git 'checkout', $current_branch;
+    git 'branch', '-D', $tmp_branch;
   }
 }
 
